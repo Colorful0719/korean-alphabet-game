@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>韓文四十音與尾音練習場</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
+
+    <!-- 導覽列 -->
+    <header class="bg-indigo-600 text-white shadow-md p-4">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-wide">한글 韓文練習場</h1>
+            <div class="flex gap-2 text-sm">
+                <span class="bg-indigo-700 px-3 py-1 rounded-full" id="score-display">得分: 0</span>
+                <span class="bg-indigo-700 px-3 py-1 rounded-full" id="combo-display">連擊: 0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要遊戲區 -->
+    <main class="max-w-xl w-full mx-auto p-4 flex-grow flex flex-col justify-center gap-6">
+        
+        <!-- 模式切換器 -->
+        <div class="grid grid-cols-3 gap-2 bg-slate-200 p-1 rounded-xl shadow-inner">
+            <button onclick="switchMode('vowels')" id="btn-vowels" class="mode-btn py-2 text-sm font-medium rounded-lg text-center bg-white text-indigo-600 shadow-sm transition-all">元音/母音</button>
+            <button onclick="switchMode('consonants')" id="btn-consonants" class="mode-btn py-2 text-sm font-medium rounded-lg text-center text-slate-600 hover:text-slate-950 transition-all">輔音/子音</button>
+            <button onclick="switchMode('batchim')" id="btn-batchim" class="mode-btn py-2 text-sm font-medium rounded-lg text-center text-slate-600 hover:text-slate-950 transition-all">收音/尾音</button>
+        </div>
+
+        <!-- 題目卡片 -->
+        <div class="bg-white border border-slate-100 rounded-2xl shadow-xl p-8 text-center flex flex-col gap-6 relative overflow-hidden">
+            <div id="feedback-overlay" class="absolute inset-0 flex items-center justify-center text-6xl font-bold opacity-0 pointer-events-none transition-all duration-200"></div>
+            
+            <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1" id="game-hint">請選出對應的羅馬拼音</span>
+                <div class="text-7xl font-bold text-slate-800 my-4" id="question-text">아</div>
+            </div>
+
+            <!-- 選項按鈕區 -->
+            <div class="grid grid-cols-2 gap-3" id="options-container">
+                <!-- 由 JS 動態渲染 -->
+            </div>
+
+            <!-- 說明與提示 -->
+            <div id="explanation" class="text-sm text-slate-500 min-h-[20px] bg-slate-50 p-3 rounded-lg hidden">
+                <!-- 答錯時顯示詳細解說 -->
+            </div>
+        </div>
+
+        <!-- 下一題按鈕 -->
+        <button id="next-btn" onclick="nextQuestion()" class="w-full bg-slate-800 text-white font-medium py-3 rounded-xl hover:bg-slate-900 transition-all shadow-md hidden">
+            下一題 →
+        </button>
+    </main>
+
+    <!-- 頁腳 -->
+    <footer class="text-center p-4 text-xs text-slate-400">
+        韓文四十音與尾音練習遊戲 · Powered by HTML5 & Tailwind
+    </footer>
+
+    <!-- 遊戲邏輯 JavaScript -->
+    <script>
+        // 資料庫：包含字母、羅馬拼音、以及簡單說明
+        const db = {
+            vowels: [
+                { char: 'ㅏ', rom: 'a' }, { char: 'ㅓ', rom: 'eo' }, { char: 'ㅗ', rom: 'o' }, { char: 'ㅜ', rom: 'u' },
+                { char: 'ㅡ', rom: 'eu' }, { char: 'ㅣ', rom: 'i' }, { char: 'ㅐ', rom: 'ae' }, { char: 'ㅔ', rom: 'e' },
+                { char: 'ㅑ', rom: 'ya' }, { char: 'ㅕ', rom: 'yeo' }, { char: 'ㅛ', rom: 'yo' }, { char: 'ㅠ', rom: 'yu' },
+                { char: 'ㅒ', rom: 'yae' }, { char: 'ㅖ', rom: 'ye' }, { char: 'ㅘ', rom: 'wa' }, { char: 'ㅝ', rom: 'wo' },
+                { char: 'ㅙ', rom: 'wae' }, { char: 'ㅞ', rom: 'we' }, { char: 'ㅚ', rom: 'oe' }, { char: 'ㅟ', rom: 'wi' }, { char: 'ㅢ', rom: 'ui' }
+            ],
+            consonants: [
+                { char: 'ㄱ', rom: 'g/k' }, { char: 'ㄴ', rom: 'n' }, { char: 'ㄷ', rom: 'd/t' }, { char: 'ㄹ', rom: 'r/l' },
+                { char: 'ㅁ', rom: 'm' }, { char: 'ㅂ', rom: 'b/p' }, { char: 'ㅅ', rom: 's' }, { char: 'ㅇ', rom: 'ng (預設不發音)' },
+                { char: 'ㅈ', rom: 'j' }, { char: 'ㅊ', rom: 'ch' }, { char: 'ㅋ', rom: 'k' }, { char: 'ㅌ', rom: 't' },
+                { char: 'ㅍ', rom: 'p' }, { char: 'ㅎ', rom: 'h' }, { char: 'ㄲ', rom: 'kk' }, { char: 'ㄸ', rom: 'tt' },
+                { char: 'ㅃ', rom: 'pp' }, { char: 'ㅆ', rom: 'ss' }, { char: 'ㅉ', rom: 'jj' }
+            ],
+            batchim: [
+                { char: '각 (ㄱ)', rom: 'k (舌根塞音)', desc: '收音 ㄱ, ㅋ, ㄲ 發 [k] 的尾音，一口氣把氣憋住。' },
+                { char: '간 (ㄴ)', rom: 'n (舌尖納音)', desc: '收音 ㄴ 發 [n] 的尾音，舌尖頂住上顎。' },
+                { char: '갇 (ㄷ)', rom: 't (舌尖塞音)', desc: '收音 ㄷ, ㅅ, ㅈ, ㅊ, ㅌ, ㅎ, ㅆ 皆發 [t] 尾音。' },
+                { char: '갈 (ㄹ)', rom: 'l (捲舌音)', desc: '收音 ㄹ 發 [l] 的尾音，舌尖向上捲，類似 English 的 "all"。' },
+                { char: '감 (ㅁ)', rom: 'm (閉嘴音)', desc: '收音 ㅁ 發 [m] 的尾音，雙唇緊閉。' },
+                { char: '갑 (ㅂ)', rom: 'p (雙唇塞音)', desc: '收音 ㅂ, ㅍ 發 [p] 的尾音，雙唇閉緊不放氣。' },
+                { char: '강 (ㅇ)', rom: 'ng (後鼻音)', desc: '收音 ㅇ 發 [ŋ] 的尾音，類似「昂」的尾音。' }
+            ]
+        };
+
+        let currentMode = 'vowels';
+        let currentQuestion = null;
+        let score = 0;
+        let combo = 0;
+        let hasAnswered = false;
+
+        // 切換模式
+        function switchMode(mode) {
+            currentMode = mode;
+            // 更新 UI 按鈕樣式
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.className = "mode-btn py-2 text-sm font-medium rounded-lg text-center text-slate-600 hover:text-slate-950 transition-all";
+            });
+            const activeBtn = document.getElementById(`btn-${mode}`);
+            activeBtn.className = "mode-btn py-2 text-sm font-medium rounded-lg text-center bg-white text-indigo-600 shadow-sm transition-all";
+            
+            // 重置連擊並出題
+            combo = 0;
+            document.getElementById('combo-display').innerText = `連擊: ${combo}`;
+            nextQuestion();
+        }
+
+        // 隨機獲取混淆選項
+        function getOptions(correctItem, pool) {
+            let options = [correctItem];
+            while (options.length < 4 && options.length < pool.length) {
+                const randomItem = pool[Math.floor(Math.random() * pool.length)];
+                if (!options.some(o => o.rom === randomItem.rom)) {
+                    options.push(randomItem);
+                }
+            }
+            // 打亂順序
+            return options.sort(() => Math.random() - 0.5);
+        }
+
+        // 下一題
+        function nextQuestion() {
+            hasAnswered = false;
+            document.getElementById('next-btn').classList.add('hidden');
+            document.getElementById('explanation').classList.add('hidden');
+            
+            const feedback = document.getElementById('feedback-overlay');
+            feedback.className = "absolute inset-0 flex items-center justify-center text-6xl font-bold opacity-0 pointer-events-none transition-all duration-200";
+
+            const pool = db[currentMode];
+            currentQuestion = pool[Math.floor(Math.random() * pool.length)];
+            
+            // 填入題目
+            document.getElementById('question-text').innerText = currentQuestion.char;
+            
+            // 渲染選項
+            const options = getOptions(currentQuestion, pool);
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.innerText = opt.rom;
+                btn.className = "opt-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-4 px-3 rounded-xl transition-all border border-slate-200/60 active:scale-98 text-lg";
+                btn.onclick = () => checkAnswer(opt, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        // 檢查答案
+        function checkAnswer(selectedOpt, selectedBtn) {
+            if (hasAnswered) return;
+            hasAnswered = true;
+
+            const isCorrect = selectedOpt.rom === currentQuestion.rom;
+            const feedback = document.getElementById('feedback-overlay');
+            
+            // 停用所有按鈕並標示正確答案
+            document.querySelectorAll('.opt-btn').forEach(btn => {
+                btn.disabled = true;
+                if (btn.innerText === currentQuestion.rom) {
+                    btn.classList.remove('bg-slate-100', 'hover:bg-slate-200');
+                    btn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-600');
+                }
+            });
+
+            if (isCorrect) {
+                score += 10 + Math.floor(combo / 3) * 2; // 連擊加成
+                combo++;
+                feedback.innerText = "⭕";
+                feedback.classList.add('bg-emerald-500/10', 'text-emerald-500', 'opacity-100');
+            } else {
+                combo = 0;
+                feedback.innerText = "❌";
+                feedback.classList.add('bg-rose-500/10', 'text-rose-500', 'opacity-100');
+                selectedBtn.classList.remove('bg-slate-100');
+                selectedBtn.classList.add('bg-rose-500', 'text-white', 'border-rose-600');
+            }
+
+            // 更新儀表板
+            document.getElementById('score-display').innerText = `得分: ${score}`;
+            document.getElementById('combo-display').innerText = `連擊: ${combo}`;
+
+            // 顯示尾音說明（如果有）
+            if (currentQuestion.desc) {
+                const expBox = document.getElementById('explanation');
+                expBox.innerText = currentQuestion.desc;
+                expBox.classList.remove('hidden');
+            }
+
+            // 顯示下一題按鈕
+            document.getElementById('next-btn').classList.remove('hidden');
+        }
+
+        // 初始化第一題
+        window.onload = () => {
+            nextQuestion();
+        };
+    </script>
+</body>
+</html>
